@@ -1,0 +1,18 @@
+Variable,Type,Use
+Age,Numeric,Age of customer
+Job,Categorical,Type of job
+Balance,Numeric,Amount of money in account
+Marital,Categorical,Marital status of customer
+Education,Categorical,Education level of customer
+Default,Categorical,Is credit in default?
+Housing,Categorical,Does customer have housing loan?
+Loan,Categorical,Does customer have personal loan?
+Contact,Categorical,Contact communication type.
+Month,Categorical,Last contact month of year
+Day_of_week,Categorical,Last contact day of the week
+Duration,Numeric,Last contact duration (HIGHLY AFFECTS DATA)
+Campaign,Numeric,Number of contacts performed during campaign for this client.
+PDays,Numeric,Number of days that passed by after client was last contacted (999 means no contact)
+Previous,Numeric,Number of contacts performed before the campaign
+POutcome,Categorical,Outcome of the previous marketing campaign
+y,Binary/Output,Has the person subscribed to a term deposit?

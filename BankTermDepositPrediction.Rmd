@@ -1,0 +1,646 @@
+---
+title: "Determining Term Deposits"
+author: Wedam Nyaaba, Charles Harrison, Basu Lamichhane, and Salvatore Cracchiolo
+date: "March 2, 2017"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+# Introduction
+  Decision making in businesses in recent times are being supported by intelligent decision support systems (DSSs) via machine learning (ML) and data mining (DM). Research has shown that business intelligence (such ML and DM) approaches contribute significantly to both personal and intelligent DSSs. Direct marketing campaigns such as contacting clients via phone calls, emails, or promotional letters have been made more accessible in this age of technology. Previous studies have shown that discriminatively direct marketing campaigns yield high success rates compared with the mass campaigns that target the general public. In particular, the direct marketing strategy essentially targets a fraction of the public who will be keenly interested in a product or service. Although this marketing strategy may appear to intrude the privacy of potential clients, it has by far yielded some positive outcomes as against the conventional mass campaigning strategies.
+
+  A Portuguese bank's data on direct marketing campaign using phone calls was selected for this study. The objective of the study is to explore several DM and ML methods in extracting relevant explanatory and predictive patterns underlying the various input variables and the single two-level categorical response variable. Four DM and DL methods are used in this study: K-nearest neighbor (K-NN), artificial neural networks (ANN), gradient boosted machine (GBM), and support vector machine (SVM). Specifically, the classification task is to predict whether or not a bank client will subscribe to a term deposit. The study is expected to answer relevant research questions such as what factors determine a client's interest in taking a term deposit, and what negative outlook will a bank receive when it keeps intruding clients privacy via phone calls.
+  
+***
+
+### Research Questions
+
+#####* What are the causes behind whether a customer will choose a term deposit or not?
+#####* Can we predict whether a customer will take a term deposit?
+#####* Is telemarketing a good banking client marketing strategy?
+#####* Can the model predict target clients to be contacted during such marketing campaigns?
+#####* Which predictive model can be beneficial to the banking industry?
+
+***
+
+
+\newpage
+
+
+# Data Source and Collection
+
+##### Dataset Download & Information: [LINK](http://archive.ics.uci.edu/ml/datasets/Bank+Marketing)
+
+We obtained a previously collected dataset listed for free use on the machine learning database of the University of California, Irvine.  The dataset was donated to UCI by the original authors:
+
+* Sergio Moro 
+* Paulo Cortez
+* Paulo Rita 
+
+![UCI Machine Learning Webpage](capture1.png)
+
+The data contains variables on customers from a bank in Portugal.  Each variable of the data is pointed towards a variable 'y' which shows whether the customer decided to take out a term deposit or not.  Several of the variables a categorical, from education level, to job type.  Other variables are quantitative, such as current bank balance and the age of the customer.
+
+##### Dataset Citation [Moro et al., 2014] S. Moro, P. Cortez and P. Rita. A Data-Driven Approach to Predict the Success of Bank Telemarketing. Decision Support Systems, Elsevier, 62:22-31, June 2014
+
+
+
+\newpage
+
+###Variables in Dataset
+
+Given the breadth of this data, there is an abundance of key information in the set that will allow us a deep insight into understanding why a customer may take a term deposit.  We have ten separate categorical variables and five quantitative variables which are detailed in the chart below. 
+
+```{r global_options, include=TRUE, echo = FALSE, warning=FALSE, message=FALSE}
+library(knitr)
+
+variablesDF <- read.csv("variables.csv", header = TRUE, sep = ",")
+kable(variablesDF)
+```
+
+***
+
+\newpage
+
+# Data Manipulation
+
+Initially the environment is cleared for new work.
+```{r eval = FALSE} 
+rm(list = ls())
+```
+
+Plugins are loaded into the environment.
+```{r message = FALSE, warning = FALSE} 
+library(dplyr)
+library(stargazer)
+library(ggplot2)
+library(plyr)
+library(lattice)
+library(rmarkdown)
+library(magrittr)
+library(formattable)
+library(caret)
+library(class)
+library(neuralnet)
+library(MASS)
+library(gbm)
+library(kernlab)
+```
+
+Now the dataset is loaded.
+```{r eval = FALSE} 
+df <- read.csv("bank.csv", header = TRUE, sep = ";")
+```
+
+To begin, we will first check for NA's in the data.  The data does include unknown variables for certain categories, which we can eliminate during the visualization and summarization through exclusion.  We will also eliminate any possible duplicate rows.
+
+Any NAs left in the data are now removed.  There were no rows removed from this operation, so there are no NAs in our data.
+```{r eval = FALSE} 
+df <- na.omit(df)
+```
+
+We remove any duplicate data existing in the dataset.  There were no rows removed from this operation, so there is non-distinct data.
+```{r eval = FALSE} 
+df %>% distinct -> df
+save(df, file="df.RData")
+```
+
+We now prepare a separate dataframe for the purposes of predictive analytics in the future.  Here we create dummy variables for all categorical variables with more than two levels.  We disclude unknown values.  We also normalize our quantitative variables.
+```{r, eval=FALSE}
+## DF is copied over to dataset specifically used for predictive analytics
+## All unknown variables are removed from this set.
+
+df_pred <- df
+
+## Dummy variables for marital status
+df_pred$MarType_Married <- ifelse(df_pred$marital == "married", 1, 0) 
+df_pred$MarType_Divorced <- ifelse(df_pred$marital == "divorced", 1, 0) 
+df_pred$MarType_Single <- ifelse(df_pred$marital == "single", 1, 0)
+
+df_pred$marital <- NULL
+
+## Dummy variables for education type
+df_pred$EduType_Primary <- ifelse(df_pred$education == "primary", 1, 0) 
+df_pred$EduType_Secondary <- ifelse(df_pred$education == "secondary", 1, 0) 
+df_pred$EduType_Tertiary <- ifelse(df_pred$education == "tertiary", 1, 0)
+
+df_pred$education <- NULL
+
+## Dummy variables for contact method
+df_pred$ContType_Cellular <- ifelse(df_pred$contact == "cellular", 1, 0) 
+df_pred$ContType_Telephone <- ifelse(df_pred$contact == "telephone", 1, 0) 
+
+df_pred$contact <- NULL
+
+## Dummy variables for month of last contact
+df_pred$Month_Jan <- ifelse(df_pred$month == "jan", 1, 0) 
+df_pred$Month_Feb <- ifelse(df_pred$month == "feb", 1, 0) 
+df_pred$Month_Mar <- ifelse(df_pred$month == "mar", 1, 0) 
+df_pred$Month_Apr <- ifelse(df_pred$month == "apr", 1, 0) 
+df_pred$Month_May <- ifelse(df_pred$month == "may", 1, 0) 
+df_pred$Month_Jun <- ifelse(df_pred$month == "jun", 1, 0) 
+df_pred$Month_Jul <- ifelse(df_pred$month == "jul", 1, 0) 
+df_pred$Month_Aug <- ifelse(df_pred$month == "aug", 1, 0) 
+df_pred$Month_Sep <- ifelse(df_pred$month == "sep", 1, 0) 
+df_pred$Month_Oct <- ifelse(df_pred$month == "oct", 1, 0) 
+df_pred$Month_Nov <- ifelse(df_pred$month == "nov", 1, 0) 
+df_pred$Month_Dec <- ifelse(df_pred$month == "dec", 1, 0) 
+
+df_pred$month <- NULL
+
+## Dummy variables for job
+df_pred$JobType_admin <- ifelse(df_pred$job == "admin.", 1, 0) 
+df_pred$JobType_bluecollar <- ifelse(df_pred$job == "blue-collar", 1, 0) 
+df_pred$JobType_entrepreneur <- ifelse(df_pred$job == "entrepreneur", 1, 0) 
+df_pred$JobType_housemaid <- ifelse(df_pred$job == "housemaid", 1, 0) 
+df_pred$JobType_management <- ifelse(df_pred$job == "management", 1, 0) 
+df_pred$JobType_retired <- ifelse(df_pred$job == "retired", 1, 0) 
+df_pred$JobType_selfemployed <- ifelse(df_pred$job == "self-employed", 1, 0) 
+df_pred$JobType_services <- ifelse(df_pred$job == "services", 1, 0) 
+df_pred$JobType_student <- ifelse(df_pred$job == "student", 1, 0) 
+df_pred$JobType_technician <- ifelse(df_pred$job == "technician", 1, 0) 
+df_pred$JobType_unemployed <- ifelse(df_pred$job == "unemployed", 1, 0) 
+
+df_pred$job <- NULL
+
+## Dummy variables for promotion outcome
+df_pred$pout_Failure <- ifelse(df_pred$poutcome == "failure", 1, 0)
+df_pred$pout_Other <- ifelse(df_pred$poutcome == "other", 1, 0)
+df_pred$pout_Success <- ifelse(df_pred$poutcome == "success", 1, 0)
+
+df_pred$poutcome <- NULL
+
+## Duration predetermines variable 'y' and greatly affects the data.  
+## For that reason it should be removed from predictive analysis.
+df_pred$duration <- NULL
+
+## We now normalize remaining data.
+preprocessParams <- preProcess(df_pred, method = c("range"))
+df_pred <- predict(preprocessParams, df_pred)
+
+## All remaining data is converted to numerical data consisting of binary numbers only
+df_pred$default <- as.numeric(ifelse(df_pred$default == "yes", 1, 0))
+df_pred$housing <- as.numeric(ifelse(df_pred$housing == "yes", 1, 0))
+df_pred$loan <- as.numeric(ifelse(df_pred$loan == "yes", 1, 0))
+df_pred$y <- as.numeric(ifelse(df_pred$y == "yes", 1, 0))
+
+## This dataset is now ready to be used for any necessary predictive analytics.
+save(df_pred, file="df_pred.RData")
+```
+
+***
+
+\newpage
+
+# Data Visualization and Summarization
+
+Our initial aim is to visualize the various categorical variables and see if we can distinguish any particular effect that each of them may be having on our response variable.  There are some obvious cases that one can imagine, but we will not neglect any variable so that a better understanding of the way our variables interact can be achieved before creating a predictive model for the data.
+
+### Age
+
+Starting with age, we will seek to determine whether a customer's age has any impact on whether they will take a term deposit.
+
+```{r warning=FALSE} 
+load(file="df.RData")
+ggplot(df, aes(y, age,)) + 
+    geom_boxplot(aes(fill = y), outlier.shape=TRUE) +
+    xlab("Did the customer take a term deposit?") + ylab("Average Age")
+```
+
+It appears that age has very little to do with whether a customer decides to take a term deposit or not.  Judging from the graph, the median age on both are very similar.  The 'yes' category is a bit broader, though, and it appears that in both cases customers appear to average around 30-50 years old.  
+
+***
+
+\newpage
+
+### Balance
+
+The current balance in a customer's bank account could certainly determine whether or not they decide to take a term deposit.  It would make sense that a customer with more money would be more likely to invest.
+
+```{r warning=FALSE} 
+load(file="df.RData")
+ggplot(df, aes(y, balance,)) + 
+    geom_boxplot(aes(fill = y), outlier.shape=TRUE) +
+    scale_y_continuous(limits = c(-4000, 80000)) + 
+    xlab("Did the customer take a term deposit?") + ylab("Average Balance")
+```
+
+
+Here we show all of our average balance data. As we can see, there are many outliers in the data. In this view the boxplot is very hard to visualize. So we will limit the data below.
+
+```{r}
+load(file="df.RData")
+ggplot(df, aes(y, balance,)) + 
+    geom_boxplot(aes(fill = y), outlier.shape=NA) +
+    scale_y_continuous(limits = c(-2000, 4000)) + 
+    xlab("Did the customer take a term deposit?") + ylab("Average Balance")
+```
+
+We are limiting the values to balances only up to 4,000 and not showing outliers. This obscures 3912 rows of data. However, from this, we can see a slightly higher mean balance for the customers that did decide to take out a term deposit.  This makes sense; customers with more money in the bank would be more likely to invest.
+
+***
+
+\newpage
+
+### Duration of Contact
+
+This particular variable may have a very significant impact on the data.  Since we are looking at how long a customer was speaking with the representative, 'y' was likely determined during the phone call.
+```{r warning=FALSE} 
+load(file="df.RData")
+ggplot(df, aes(y, duration,)) + 
+    geom_boxplot(aes(fill = y), outlier.shape=TRUE) +
+    scale_y_continuous(limits = c(0, 5000)) + 
+    xlab("Did the customer take a term deposit?") + ylab("Duration of Contact")
+```
+```{r warning=FALSE}
+load(file="df.RData")
+ggplot(df, aes(y, duration,)) + 
+    geom_boxplot(aes(fill = y), outlier.shape=NA) +
+    scale_y_continuous(limits = c(0, 1500)) + 
+    xlab("Did the customer take a term deposit?") + ylab("Duration of Contact")
+```
+
+The duration of a call definitely appears to have a meaningful effect on the data.  If a customer speaks on the phone longer, they are more likely to have a term deposit.  The issue with this is that the call will last longer based on their choice to arrange a term deposit.  For this reason, it is likely that this variable should be excluded from any predictive analytics.
+
+***
+
+\newpage
+
+### Job
+
+Moving onto job, it would be logical to imagine a higher-paid worker would be more likely to take a term deposit.  Going into it with this assumption, we will seek to confirm it.
+
+To do this, we must first take a count of each job type in the dataset, grouped by whether they took a term deposit or not.
+```{r eval = FALSE} 
+jobs <- ddply(df, c("y","job"), summarize,count = length(y))
+save(jobs, file="jobs.RData")
+```
+```{r, warning=FALSE}
+load(file="jobs.RData")
+ggplot(jobs, aes(x = job, y = count)) +
+     geom_bar(stat = "identity", aes(fill=y), position="dodge") +
+     xlab("Job Title") + ylab("Number of Term Deposit Y/N") + 
+     labs(title = "Term Deposits by Job") +
+     theme(axis.text.x = element_text(colour = "deepskyblue4", hjust =1, vjust = 0.2, angle=90), axis.text.y = element_text(colour = "deepskyblue4"))
+```
+From the vast difference in the number of customers, it is difficult to actually get an idea of what's going on.  Management appears to have a higher chance of taking a term deposit, but where are also just quite a few customers in management meaning that they have a higher chance to.  In order to rectify this, we will take the percentage of customers in each job type.  
+
+The data is subsetted by the response variable, then combined.  A new variable is then added to determine the percentage each job type agrees to a term deposit.
+```{r eval = FALSE} 
+jobs_yes <- ddply(subset(df, y == "yes"), c("job"), summarize,yes = length(y))
+jobs_no <- ddply(subset(df, y == "no"), c("job"), summarize,no = length(y))
+jobs2 <- merge(jobs_yes, jobs_no, by="job")
+jobs2$percentage <- percent(jobs2$yes / (jobs2$yes + jobs2$no))
+save(jobs2, file="jobs2.RData")
+```
+
+Now with the percentage found, we can graph something more meaningful.  Anything over 13% is above average.
+```{r, warning=FALSE}
+load(file="jobs2.RData")
+ggplot(jobs2, aes(x = job, y = percentage)) +
+     geom_bar(stat = "identity", fill="springgreen4") +
+     geom_text(aes(label=percentage), vjust=-0.2) + 
+     xlab("Job Title") + ylab("% of Yes to Term Deposit") + 
+     labs(title = "Term Deposits by Job") +
+     theme(axis.text = element_text(colour = "darkslategrey", hjust =1, vjust = -3, angle=90), axis.text.y = element_text(colour = "darkslategrey"))# + theme(plot.margin = unit(c(1,1,1,1,1)), "%")
+```
+Looking at the new data based on the percentage of those that said yes, we can see some distinction now. Students, retired, unemployed, management, and self-employed all seem more likely to take out a term deposit.
+
+***
+
+\newpage
+
+### Marital
+
+Now taking a look at the marital status of each customer, we will discern whether it has any particular effect on taking out a term deposit.The same strategy as previous will be employed to categorize the data.
+```{r eval = FALSE} 
+marital_yes <- ddply(subset(df, y == "yes"), c("marital"), summarize,yes = length(y))
+marital_no <- ddply(subset(df, y == "no"), c("marital"), summarize,no = length(y))
+marital <- merge(marital_yes, marital_no, by="marital")
+marital$percentage <- percent(marital$yes / (marital$yes + marital$no))
+save(marital, file="marital.RData")
+```
+```{r, warning=FALSE}
+load(file="marital.RData")
+ggplot(marital, aes(x = marital, y = percentage)) +
+     geom_bar(stat = "identity", fill="darkolivegreen4") +
+     geom_text(aes(label=percentage), vjust=-0.2) + 
+     xlab("Marital Status") + ylab("% of Yes to Term Deposit") + 
+     labs(title = "Term Deposits by Marital Status") +
+     theme(axis.text = element_text(colour = "darkolivegreen4", angle=35))
+```
+Through this, we can see that single customers appear more likely to agree to a term deposit, while married couples are the least likely.
+
+***
+
+\newpage
+
+### Housing
+
+If a customer possesses a housing loan, it means that they both own a home instead of rent, but also that they are incurring debt.  This could lead to both; they are not homeless nor renting, but they are also in debt already.  We will see which portion plays more strongly when determining it they want a term deposit.  In order to do this, we will need to take a count again.
+```{r eval = FALSE} 
+housing_yes <- ddply(subset(df, y == "yes"), c("housing"), summarize,yes = length(y))
+housing_no <- ddply(subset(df, y == "no"), c("housing"), summarize,no = length(y))
+housing <- merge(housing_yes, housing_no, by="housing")
+housing$percentage <- percent(housing$yes / (housing$yes + housing$no))
+save(housing, file="housing.RData")
+```
+```{r, warning=FALSE}
+load(file="housing.RData")
+ggplot(housing, aes(x = housing, y = percentage)) +
+     geom_bar(stat = "identity", fill="darkorange4") +
+     geom_text(aes(label=percentage), vjust=-0.2) + 
+     xlab("Housing Loan Status") + ylab("% of Yes to Term Deposit") + 
+     labs(title = "Term Deposits by Housing Loan Status") +
+     theme(axis.text = element_text(colour = "darkorange4"))
+```
+From this we can see that those who have no current housing loan are much more likely to take out a term deposit.  This could be because they are incurring less debt and have more money on hand.
+
+***
+
+\newpage
+
+### Loan
+
+Similar to the above variable, but this means the customer only is currently incurring debt, making them perhaps less likely to take out a term deposit.  We will check.
+
+```{r eval = FALSE} 
+loan_yes <- ddply(subset(df, y == "yes"), c("loan"), summarize,yes = length(y))
+loan_no <- ddply(subset(df, y == "no"), c("loan"), summarize,no = length(y))
+loan <- merge(loan_yes, loan_no, by="loan")
+loan$percentage <- percent(loan$yes / (loan$yes + loan$no))
+save(loan, file="loan.RData")
+```
+```{r, warning=FALSE}
+load(file="loan.RData")
+ggplot(loan, aes(x = loan, y = percentage)) +
+     geom_bar(stat = "identity", fill="brown4") +
+     geom_text(aes(label=percentage), vjust=-0.2) + 
+     xlab("Loan Status") + ylab("% of Yes to Term Deposit") + 
+     labs(title = "Term Deposits by Loan Status") +
+     theme(axis.text = element_text(colour = "brown4"))
+```
+Once again, similar to the housing loan status, we see that the customers with no current loans are more likely to take out a term deposit.  
+
+***
+
+\newpage
+
+### Contact
+
+This is a variable of which there are no key assumptions upon.  Perhaps someone owning a cell phone is more likely to take a term deposit than someone without. 
+
+```{r eval = FALSE} 
+contact_yes <- ddply(subset(df, y == "yes"), c("contact"), summarize,yes = length(y))
+contact_no <- ddply(subset(df, y == "no"), c("contact"), summarize,no = length(y))
+contact <- merge(contact_yes, contact_no, by="contact")
+contact$percentage <- percent(contact$yes / (contact$yes + contact$no))
+save(contact, file="contact.RData")
+```
+```{r, warning=FALSE}
+load(file="contact.RData")
+ggplot(contact, aes(x = contact, y = percentage)) +
+     geom_bar(stat = "identity", fill="red1") +
+     geom_text(aes(label=percentage), vjust=-0.2) + 
+     xlab("Contact Type") + ylab("% of Yes to Term Deposit") + 
+     labs(title = "Term Deposits by Contact Type") +
+     theme(axis.text = element_text(colour = "red1"))
+```
+It appears that customers using a cellphone do have a slightly higher chance to take out a term deposit by exactly 1.5%.  
+
+***
+
+\newpage
+
+### Education
+
+Education could play an important role in whether a customer decides to take a term deposit.  It would stand to reason that a customer with higher education may have more disposable income.
+```{r eval = FALSE} 
+education_yes <- ddply(subset(df, y == "yes"), c("education"), summarize,yes = length(y))
+education_no <- ddply(subset(df, y == "no"), c("education"), summarize,no = length(y))
+education <- merge(education_yes, education_no, by="education")
+education$percentage <- percent(education$yes / (education$yes + education$no))
+save(education, file="education.RData")
+```
+```{r, warning=FALSE}
+load(file="education.RData")
+ggplot(education, aes(x = education, y = percentage)) +
+     geom_bar(stat = "identity", fill="lightsalmon4") +
+     geom_text(aes(label=percentage), vjust=-0.2) + 
+     xlab("Level of Education") + ylab("% of Yes to Term Deposit") + 
+     labs(title = "Term Deposits by Level of Education") +
+     theme(axis.text = element_text(colour = "lightsalmon4"))
+```
+The data confirms our theory that higher education appears to increase the likelihood someone will take out a term deposit.   
+
+***
+
+\newpage
+
+# Predictive Analysis
+
+We will now begin constructing a few different methods of prediction to see which can best determine our response variable. Duration is being excluded from all predictive analytics as it predetermines the response variable 'y'.
+
+### Logistic train, 10-fold cross validation
+
+```{r} 
+fitControl <- trainControl(method = "cv",number = 10)
+set.seed(123) 
+
+logit_fit <- train(y ~ ., data = df[-12], trControl = fitControl, method="glm", family=binomial(link=logit))
+```
+
+Let us take a look at the outcome.
+```{r}
+print(logit_fit)
+```
+
+We will now place it in a confusion matrix.
+```{r}
+confusionMatrix(logit_fit)
+```
+This method produced a prediction accuracy of 89.25%  This is a fairly accurate showing, but we can do better by using StepAIC to determine our effective variables.
+
+***
+
+\newpage
+
+### Utilizing stepAIC
+
+Using the stepwise model selection, we will determine what variables to remove from the final model.  Once again, the variable duration is removed from the selection.  
+```{r}
+set.seed(1234)
+trainIndex <- createDataPartition(df$y, p = .7, list = FALSE)
+
+train_data <- df[ trainIndex,]
+test_data  <- df[-trainIndex,]
+
+fit <- glm(y ~ age + job + marital + education + default + balance + housing + 
+    loan + contact + day + month + campaign + pdays + 
+    previous + poutcome, data = train_data, family=binomial(link='logit'))
+
+step <- stepAIC(fit, direction="both")
+step$anova
+save(fit, file="fit.RData")
+```
+We will now fit a new logistic model based on the recommendation of the stepwise function
+```{r}
+step_fit <- glm(y ~ job + marital + education + balance + housing + loan + contact + 
+    day + month + campaign + previous + poutcome, data = train_data, family=binomial(link='logit'))
+save(step_fit, file="stepfit.RData")
+```
+Now we compare the accuracy of the two.
+```{r}
+load(file="fit.RData")
+load(file="stepfit.RData")
+stargazer(fit, step_fit, type = "text", star.cutoffs = c(0.05, 0.01, 0.001),
+          title="Logistic Regression", digits=4)
+save(step_fit, file="stepfit.RData")
+```
+Data is prepared for use in confusion matrix by converting predictions into overlapping binary numerics.  
+```{r}
+load(file="stepfit.RData")
+test_data$Pred <- predict(step_fit, test_data, type="response")
+
+test_data$Pred[test_data$Pred >= .50] <- 1
+test_data$Pred[test_data$Pred < .50] <- 0
+
+test_data$y <- as.numeric(ifelse(test_data$y == "yes", 1, 0))
+save(test_data, file="testdata.RData")
+```
+
+We create a confusion matrix to look at accuracy.
+```{r}
+load(file="testdata.RData")
+confusionMatrix(test_data$y, test_data$Pred)
+```
+Accuracy produced a 96.7%, much better than the method we used initially.
+
+***
+
+\newpage
+
+### k-NN Modeling using 70/30 split
+We will now run k-NN modeling using a 70%/30% split.  After each model is created, we will determine the accuracy and best fit using the k-NN method.  
+
+Train and test sets are created at random.
+```{r}
+
+load(file="df_pred.RData")
+
+index <- 1:nrow(df_pred) 
+set.seed(123) 
+train_index <- sample(index, round(length(index)*0.7))
+train_set <- df_pred[train_index,]
+test_set <- df_pred[-train_index,]
+```
+
+We will look at 5 different levels of knn
+```{r}
+cl <- df_pred[train_index,"y"]
+
+knn1 <- knn(train_set,test_set, cl, k = 1) 
+knn5 <- knn(train_set,test_set, cl, k = 5) 
+knn10 <- knn(train_set,test_set, cl, k = 10) 
+knn15 <- knn(train_set,test_set, cl, k = 15) 
+knn20 <- knn(train_set,test_set, cl, k = 20)
+
+cl_test <- df_pred[-train_index,"y"]
+```
+
+We now will individually construct a confusion matrix and then test for the accuracy of each k-nn model that was developed.
+
+#### k-nn 1
+######Confusion matrix for k-nn 1
+```{r}
+table(knn1, cl_test)
+```
+######Accuracy for k-nn 1
+```{r}
+sum(knn1 == cl_test)/nrow(test_set)
+```
+
+#### k-nn 5
+######Confusion matrix for k-nn 5
+```{r}
+table(knn5, cl_test)
+```
+######Accuracy for k-nn 5
+```{r}
+sum(knn5 == cl_test)/nrow(test_set)
+```
+
+#### k-nn 10
+######Confusion matrix for k-nn 10
+```{r}
+table(knn10, cl_test)
+```
+######Accuracy for k-nn 10
+```{r}
+sum(knn10 == cl_test)/nrow(test_set)
+```
+
+#### k-nn 15
+######Confusion matrix for k-nn 15
+```{r}
+table(knn15, cl_test)
+```
+######Accuracy for k-nn 15
+```{r}
+sum(knn15 == cl_test)/nrow(test_set)
+```
+
+#### k-nn 20
+######Confusion matrix for k-nn 20
+```{r}
+table(knn20, cl_test)
+```
+######Accuracy for k-nn 20
+```{r}
+sum(knn20 == cl_test)/nrow(test_set)
+```
+
+It looks as though k-nn1 had the best accuracy at 97.6% accuracy.  This is a massive step above the previous two methods we used for prediction.
+
+***
+
+\newpage
+
+## Train Gradient Boosted Machine with 10-fold Cross-Validation 
+```{r}
+fitControl <- trainControl(method = "cv",number = 10)
+set.seed(123)
+gbm_fit <- train(y ~ ., data = df[-12], trControl = fitControl, method = "gbm",
+verbose=FALSE)
+print(gbm_fit)
+```
+We will construct a confusion matrix to test accuracy.
+```{r}
+confusionMatrix(gbm_fit)
+```
+Our Gradient Boosted Machine manages an accuracy of 89.32%.  
+
+***
+
+\newpage
+
+###Compare Different Predictive Models
+
+Collect resamples
+```{r}
+resamps <- resamples(list(Logit=logit_fit,  GBM = gbm_fit))
+```
+Summarize the resamples
+```{r} 
+summary(resamps)
+```
+
+###Prediction Conclusion
+
+Out of all the tests that we ran, it appears our kNN-1 predictor was the most accurate at 97.6% .  The StepAIC-modified logistic regression also showed a very high degree of accuracy at a very close 96.7%.  When constructing an effective predictive model, one of these two methods will certainly prove the most effective.  
+
+***
+
+
