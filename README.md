@@ -1,7 +1,9 @@
 # DataScienceProject
-title: "Determining Term Deposits"
-author: Wedam Nyaaba, Charles Harrison, Basu Lamichhane, and Salvatore Cracchiolo
-date: "March 2, 2017"
+Title: "Determining Term Deposits"
+
+Author: Wedam Nyaaba, Charles Harrison, Basu Lamichhane, and Salvatore Cracchiolo
+
+Date: "March 2, 2017"
 
 # Introduction
   Decision making in businesses in recent times are being supported by intelligent decision support systems (DSSs) via machine learning (ML) and data mining (DM). Research has shown that business intelligence (such ML and DM) approaches contribute significantly to both personal and intelligent DSSs. Direct marketing campaigns such as contacting clients via phone calls, emails, or promotional letters have been made more accessible in this age of technology. Previous studies have shown that discriminatively direct marketing campaigns yield high success rates compared with the mass campaigns that target the general public. In particular, the direct marketing strategy essentially targets a fraction of the public who will be keenly interested in a product or service. Although this marketing strategy may appear to intrude the privacy of potential clients, it has by far yielded some positive outcomes as against the conventional mass campaigning strategies.
